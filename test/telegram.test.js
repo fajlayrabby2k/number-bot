@@ -80,6 +80,7 @@ test("Fojlay Apps allocates unique synthetic identifiers and restricts stock cha
     sqlite.exec(migration);
     sqlite.exec(readFileSync(new URL("../migrations/0003_test_stock_claims.sql", import.meta.url), "utf8"));
     sqlite.exec(readFileSync(new URL("../migrations/0004_test_services.sql", import.meta.url), "utf8"));
+    sqlite.exec(readFileSync(new URL("../migrations/0005_per_service_test_stock.sql", import.meta.url), "utf8"));
     const DB = {
       prepare(sql) {
         return {
@@ -113,6 +114,12 @@ test("Fojlay Apps allocates unique synthetic identifiers and restricts stock cha
     assert.equal(menu.entities[0].type, "blockquote");
     const demo = menu.reply_markup.inline_keyboard.flat().find(({ text }) => text === "Demo App");
     assert.equal(menu.reply_markup.inline_keyboard.length, 5);
+    assert.match((await press(demo.callback_data)).text, /টেস্ট স্টক নেই/);
+    const stockMenu = await send("/test_stock", true);
+    const manageDemo = stockMenu.reply_markup.inline_keyboard.flat().find(({ text }) => text === "Demo App");
+    assert.match((await press(manageDemo.callback_data, 456)).text, /অ্যাডমিন/);
+    assert.match((await press(manageDemo.callback_data)).text, /\/test_set demo BD 60/);
+    assert.match((await send("/test_set demo BD 6", true)).text, /6/);
     const demoCountries = await press(demo.callback_data);
     assert.match(demoCountries.text, /Demo App/);
     assert.equal(demoCountries.reply_markup.inline_keyboard[0][0].callback_data, "stock:claim:demo:BD");
@@ -132,14 +139,15 @@ test("Fojlay Apps allocates unique synthetic identifiers and restricts stock cha
     const requested = await Promise.all([press(change.callback_data, 123, "change"), press("stock:claim:demo:BD", 456)]);
     assert.equal(new Set([...numbers(stock), ...requested.flatMap(numbers)]).size, 9);
     assert.match(requested[1].text, /Demo App/);
+    assert.deepEqual(numbers(requested[1]), ["TEST-BATCH-DEMO-BD-0001", "TEST-BATCH-DEMO-BD-0002", "TEST-BATCH-DEMO-BD-0003"]);
     assert.match((await send("/service_delete demo")).text, /অ্যাডমিন/);
     assert.match((await send("/service_delete demo", true)).text, /সরানো হয়েছে/);
     assert.match((await press("stock:claim:demo:BD")).text, /পাওয়া যাচ্ছে না/);
     const updatedMenu = await send("📞 Get Number");
     assert.equal(updatedMenu.reply_markup.inline_keyboard.flat().some(({ text }) => text === "Demo App"), false);
     assert.equal((await press(change.callback_data, 123, "change")).method, "answerCallbackQuery");
-    assert.equal(sqlite.prepare("SELECT COUNT(*) AS total FROM test_stock_claims").get().total, 9);
-    assert.match((await send("/test_set IT 1000", true)).text, /1000/);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS total FROM test_stock_claims").get().total, 6);
+    assert.match((await send("/test_set fojlay IT 1000", true)).text, /1000/);
     const issued = new Set();
     for (let batch = 0; batch < 334; batch++) {
       const next = await press("stock:claim:IT", batch % 2 ? 123 : 456);
@@ -151,8 +159,8 @@ test("Fojlay Apps allocates unique synthetic identifiers and restricts stock cha
     assert.equal(issued.size, 1000);
     assert.match((await press("stock:claim:IT")).text, /স্টক শেষ/);
     assert.equal((await press("/test_set BD 12")).method, "answerCallbackQuery");
-    assert.match((await send("/test_set BD 52")).text, /অ্যাডমিন/);
-    assert.match((await send("/test_set BD 52", true)).text, /52/);
+    assert.match((await send("/test_set fojlay BD 52")).text, /অ্যাডমিন/);
+    assert.match((await send("/test_set fojlay BD 52", true)).text, /52/);
   } finally {
     sqlite.close();
   }

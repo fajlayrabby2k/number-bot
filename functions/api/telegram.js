@@ -60,7 +60,7 @@ export async function onRequest({ request, env }) {
       if (claim && !selected) return Response.json({ ...acknowledge, text: "সার্ভিসটি পাওয়া যাচ্ছে না।" });
       const result = claim
         ? await claimTestStock(env.DB, claim[2], chatId, callback.id, serviceId, selected.name)
-        : await testStock(input, env.DB, false);
+        : await testStock(input, env.DB, String(chatId) === env.TELEGRAM_ADMIN_ID?.trim());
       if (!result) return Response.json(acknowledge);
       if (!result?.replyMarkup) return Response.json({ ...acknowledge, text: result?.text });
       return Response.json({
