@@ -65,6 +65,7 @@ export async function onRequest({ request, env }) {
         chat_id: chatId,
         message_id: message.message_id,
         text: result.text,
+        entities: result.entities,
         reply_markup: result.replyMarkup,
       });
     } catch {

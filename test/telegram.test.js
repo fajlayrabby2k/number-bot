@@ -109,7 +109,11 @@ test("Fojlay Apps allocates unique synthetic identifiers and restricts stock cha
     assert.equal(countries.method, "editMessageText");
     const country = countries.reply_markup.inline_keyboard[0][0];
     const stock = await press(country.callback_data);
-    assert.equal(stock.text, "Fojlay Apps · বাংলাদেশ (BD)\nকপি করতে নম্বরে চাপুন।");
+    assert.match(stock.text, /🇧🇩 বাংলাদেশ \(BD\) · Test Numbers\n📱 Fojlay Apps\n⏱ Refreshed:/);
+    assert.doesNotMatch(stock.text, /বরাদ্দ|বাকি/);
+    assert.deepEqual(stock.entities, [{ type: "blockquote", offset: 0, length: stock.text.length }]);
+    assert.equal(stock.reply_markup.inline_keyboard[0][0].style, "success");
+    assert.deepEqual(stock.reply_markup.inline_keyboard.at(-1).map(({ style }) => style), ["primary", "primary"]);
     const numbers = (reply) => reply.reply_markup.inline_keyboard
       .flat().filter((button) => button.copy_text).map((button) => button.copy_text.text);
     assert.deepEqual(numbers(stock), ["TEST-BATCH-BD-0001", "TEST-BATCH-BD-0002", "TEST-BATCH-BD-0003"]);
