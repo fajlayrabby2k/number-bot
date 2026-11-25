@@ -1,4 +1,4 @@
-import { stockCallbackInput, testStock } from "../../lib/stock.js";
+import { claimTestStock, stockCallbackInput, testStock } from "../../lib/stock.js";
 
 const encoder = new TextEncoder();
 const adminButton = "⚙️ Admin Panel";
@@ -52,9 +52,13 @@ export async function onRequest({ request, env }) {
       return new Response(null, { status: 204 });
     }
     const acknowledge = { method: "answerCallbackQuery", callback_query_id: callback.id };
-    if (!input) return Response.json(acknowledge);
+    const claim = /^stock:claim:([A-Z]{2})$/.exec(callback.data);
+    if (!input && !claim) return Response.json(acknowledge);
     try {
-      const result = await testStock(input, env.DB, false);
+      const result = claim
+        ? await claimTestStock(env.DB, claim[1], chatId, callback.id)
+        : await testStock(input, env.DB, false);
+      if (!result) return Response.json(acknowledge);
       if (!result.replyMarkup) return Response.json({ ...acknowledge, text: result.text });
       return Response.json({
         method: "editMessageText",

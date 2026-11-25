@@ -73,17 +73,20 @@ test("shows the admin button and opens the panel only for the configured sender"
   assert.equal(regular.reply_markup.keyboard.length, 3);
 });
 
-test("Fojlay Apps lists 100 synthetic identifiers and restricts stock changes", async () => {
+test("Fojlay Apps allocates unique synthetic identifiers and restricts stock changes", async () => {
   const sqlite = new DatabaseSync(":memory:");
   try {
     const migration = readFileSync(new URL("../migrations/0002_test_stock.sql", import.meta.url), "utf8");
     sqlite.exec(migration);
-    sqlite.exec(migration);
+    sqlite.exec(readFileSync(new URL("../migrations/0003_test_stock_claims.sql", import.meta.url), "utf8"));
     const DB = {
       prepare(sql) {
         return {
           all: async () => ({ results: sqlite.prepare(sql).all() }),
-          bind: (...args) => ({ first: async () => sqlite.prepare(sql).get(...args) }),
+          bind: (...args) => ({
+            first: async () => sqlite.prepare(sql).get(...args),
+            all: async () => ({ results: sqlite.prepare(sql).all(Object.fromEntries(args.map((arg, index) => [String(index + 1), arg]))) }),
+          }),
         };
       },
     };
@@ -94,8 +97,9 @@ test("Fojlay Apps lists 100 synthetic identifiers and restricts stock changes", 
       return (await webhook(update, { env })).json();
     };
     assert.equal(sqlite.prepare("SELECT SUM(quantity) AS total FROM test_stock").get().total, 100);
-    const press = async (data) => (await webhook({
-      callback_query: { id: "cb", data, from: { id: 123 }, message: { ...message("").message, message_id: 1 } },
+    let callbackId = 0;
+    const press = async (data, user = 123, id = String(++callbackId)) => (await webhook({
+      callback_query: { id, data, from: { id: user }, message: { chat: { id: user, type: "private" }, message_id: 1 } },
     }, { env })).json();
     const menu = await send("📞 Get Number");
     assert.equal(menu.reply_markup.keyboard, undefined);
@@ -107,12 +111,23 @@ test("Fojlay Apps lists 100 synthetic identifiers and restricts stock changes", 
     const stock = await press(country.callback_data);
     const numbers = (reply) => reply.reply_markup.inline_keyboard
       .flat().filter((button) => button.copy_text).map((button) => button.copy_text.text);
-    assert.deepEqual(numbers(stock), ["TEST-BD-0001", "TEST-BD-0002", "TEST-BD-0003"]);
+    assert.deepEqual(numbers(stock), ["TEST-BATCH-BD-0001", "TEST-BATCH-BD-0002", "TEST-BATCH-BD-0003"]);
     const change = stock.reply_markup.inline_keyboard.at(-1)[0];
-    assert.deepEqual(numbers(await press(change.callback_data)), ["TEST-BD-0004", "TEST-BD-0005", "TEST-BD-0006"]);
-    const lastPage = await press("stock:IT:17");
-    assert.deepEqual(numbers(lastPage), ["TEST-IT-0049", "TEST-IT-0050"]);
-    assert.equal(lastPage.reply_markup.inline_keyboard.at(-1).some((button) => button.text.includes("Change")), false);
+    const requested = await Promise.all([press(change.callback_data, 123, "change"), press(change.callback_data, 456)]);
+    assert.equal(new Set([...numbers(stock), ...requested.flatMap(numbers)]).size, 9);
+    assert.equal((await press(change.callback_data, 123, "change")).method, "answerCallbackQuery");
+    assert.equal(sqlite.prepare("SELECT COUNT(*) AS total FROM test_stock_claims").get().total, 9);
+    assert.match((await send("/test_set IT 1000", true)).text, /1000/);
+    const issued = new Set();
+    for (let batch = 0; batch < 334; batch++) {
+      const next = await press("stock:claim:IT", batch % 2 ? 123 : 456);
+      const copied = numbers(next);
+      assert.equal(copied.length, batch === 333 ? 1 : 3);
+      assert.equal(next.reply_markup.inline_keyboard.flat().some(({ text }) => text.includes("Previous")), false);
+      for (const value of copied) issued.add(value);
+    }
+    assert.equal(issued.size, 1000);
+    assert.match((await press("stock:claim:IT")).text, /স্টক শেষ/);
     assert.equal((await press("/test_set BD 12")).method, "answerCallbackQuery");
     assert.match((await send("/test_set BD 52")).text, /অ্যাডমিন/);
     assert.match((await send("/test_set BD 52", true)).text, /52/);
