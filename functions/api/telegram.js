@@ -1,4 +1,13 @@
 const encoder = new TextEncoder();
+const mainMenu = {
+  keyboard: [
+    [{ text: "📞 Get Number" }, { text: "📊 Live Traffic" }],
+    [{ text: "👛 Wallet" }, { text: "🏆 Leaderboard" }],
+    [{ text: "🙋 Support" }, { text: "🔄 Backup Bot" }],
+  ],
+  resize_keyboard: true,
+  is_persistent: true,
+};
 
 function secretMatches(received, expected) {
   if (!received || !expected) return false;
@@ -40,6 +49,7 @@ export async function onRequest({ request, env }) {
 
   const command = message.text.trim().split(/\s+/, 1)[0];
   let text;
+  let replyMarkup;
   switch (command) {
     case "/start":
       if (!env.DB) return new Response(null, { status: 503 });
@@ -51,7 +61,8 @@ export async function onRequest({ request, env }) {
         console.error("D1 could not record /start");
         return new Response(null, { status: 503 });
       }
-      text = "স্বাগতম! কমান্ড দেখতে /help লিখুন।";
+      text = "👋 HELLO & WELCOME TO NUMBER BOT\n📞 GET FREE VIRTUAL NUMBERS\n⚡ FAST & SIMPLE SMS SERVICE";
+      replyMarkup = mainMenu;
       break;
     case "/help":
       text = "/start — বট শুরু করুন\n/help — কমান্ড দেখুন\n/ping — বট সক্রিয় কি না দেখুন";
@@ -64,5 +75,5 @@ export async function onRequest({ request, env }) {
   }
 
   // Telegram executes this Bot API method directly from the webhook response.
-  return Response.json({ method: "sendMessage", chat_id: message.chat.id, text });
+  return Response.json({ method: "sendMessage", chat_id: message.chat.id, text, reply_markup: replyMarkup });
 }

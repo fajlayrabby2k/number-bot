@@ -41,7 +41,16 @@ test("records /start once across Telegram retries", async () => {
       },
     };
     for (let attempt = 0; attempt < 2; attempt++) {
-      assert.equal((await webhook(message("/start payload"), { env: { DB } })).status, 200);
+      const response = await webhook(message("/start payload"), { env: { DB } });
+      assert.equal(response.status, 200);
+      const reply = await response.json();
+      assert.match(reply.text, /WELCOME TO NUMBER BOT/);
+      assert.deepEqual(reply.reply_markup.keyboard.map((row) => row.map(({ text }) => text.slice(text.indexOf(" ") + 1))), [
+        ["Get Number", "Live Traffic"],
+        ["Wallet", "Leaderboard"],
+        ["Support", "Backup Bot"],
+      ]);
+      assert.equal(reply.reply_markup.is_persistent, true);
     }
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM chats").get().count, 1);
     assert.equal((await webhook(message("/start"))).status, 503);
