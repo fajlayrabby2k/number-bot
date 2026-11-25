@@ -114,7 +114,7 @@ export async function onRequest({ request, env }) {
       break;
     case "/admin":
       text = isAdmin ? "⚙️ Admin Panel" : "এই প্যানেলটি শুধু অ্যাডমিনের জন্য।";
-      if (isAdmin) replyMarkup = { keyboard: [[{ text: "/services" }, { text: "/test_stock" }], [{ text: "/service_add" }, { text: "/service_delete" }], [{ text: "/start" }]], resize_keyboard: true };
+      if (isAdmin) replyMarkup = { keyboard: [[{ text: "/services" }, { text: "📦 Number Stock" }], [{ text: "/service_add" }, { text: "/service_delete" }], [{ text: "/start" }]], resize_keyboard: true };
       break;
     case "/help":
       text = "/start — বট শুরু করুন\n/help — কমান্ড দেখুন\n/ping — বট সক্রিয় কি না দেখুন";

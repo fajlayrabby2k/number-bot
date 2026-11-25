@@ -86,7 +86,9 @@ test("Fojlay Apps allocates unique synthetic identifiers and restricts stock cha
         return {
           all: async () => ({ results: sqlite.prepare(sql).all() }),
           bind: (...args) => ({
-            first: async () => sqlite.prepare(sql).get(...args),
+            first: async () => sql.includes("?1")
+              ? sqlite.prepare(sql).get(Object.fromEntries(args.map((arg, index) => [String(index + 1), arg])))
+              : sqlite.prepare(sql).get(...args),
             all: async () => ({ results: sqlite.prepare(sql).all(Object.fromEntries(args.map((arg, index) => [String(index + 1), arg]))) }),
           }),
         };
@@ -115,11 +117,17 @@ test("Fojlay Apps allocates unique synthetic identifiers and restricts stock cha
     const demo = menu.reply_markup.inline_keyboard.flat().find(({ text }) => text === "Demo App");
     assert.equal(menu.reply_markup.inline_keyboard.length, 5);
     assert.match((await press(demo.callback_data)).text, /ডেমো স্টক নেই/);
-    const stockMenu = await send("/test_stock", true);
+    const stockMenu = await send("📦 Number Stock", true);
     const manageDemo = stockMenu.reply_markup.inline_keyboard.flat().find(({ text }) => text === "Demo App");
     assert.match((await press(manageDemo.callback_data, 456)).text, /অ্যাডমিন/);
-    assert.match((await press(manageDemo.callback_data)).text, /\/test_set demo BD 60/);
-    assert.match((await send("/test_set demo BD 6", true)).text, /6/);
+    const stockCountries = await press(manageDemo.callback_data);
+    const manageBD = stockCountries.reply_markup.inline_keyboard.flat().find(({ callback_data }) => callback_data === "stock:manage:demo:BD");
+    const addMenu = await press(manageBD.callback_data);
+    const add = addMenu.reply_markup.inline_keyboard[0][0];
+    assert.match((await press(add.callback_data, 456)).text, /অ্যাডমিন/);
+    assert.match((await press(add.callback_data)).text, /10টি ডেমো নম্বর যোগ হয়েছে/);
+    assert.match((await press(add.callback_data)).text, /মোট: 10/);
+    assert.equal(sqlite.prepare("SELECT quantity FROM service_test_stock WHERE stock_key = 'demo:BD'").get().quantity, 10);
     const demoCountries = await press(demo.callback_data);
     assert.match(demoCountries.text, /Demo App/);
     assert.equal(demoCountries.reply_markup.inline_keyboard[0][0].callback_data, "stock:claim:demo:BD");
