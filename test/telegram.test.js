@@ -114,7 +114,7 @@ test("Fojlay Apps allocates unique synthetic identifiers and restricts stock cha
     assert.equal(menu.entities[0].type, "blockquote");
     const demo = menu.reply_markup.inline_keyboard.flat().find(({ text }) => text === "Demo App");
     assert.equal(menu.reply_markup.inline_keyboard.length, 5);
-    assert.match((await press(demo.callback_data)).text, /টেস্ট স্টক নেই/);
+    assert.match((await press(demo.callback_data)).text, /ডেমো স্টক নেই/);
     const stockMenu = await send("/test_stock", true);
     const manageDemo = stockMenu.reply_markup.inline_keyboard.flat().find(({ text }) => text === "Demo App");
     assert.match((await press(manageDemo.callback_data, 456)).text, /অ্যাডমিন/);
@@ -127,19 +127,19 @@ test("Fojlay Apps allocates unique synthetic identifiers and restricts stock cha
     assert.equal(countries.method, "editMessageText");
     const country = countries.reply_markup.inline_keyboard[0][0];
     const stock = await press(country.callback_data);
-    assert.match(stock.text, /🇧🇩 বাংলাদেশ \(BD\) · Test Numbers\n📱 Fojlay Apps\n⏱ Refreshed:/);
+    assert.match(stock.text, /🇧🇩 বাংলাদেশ \(BD\) · Demo Numbers\n📱 Fojlay Apps\n⏱ Refreshed:/);
     assert.doesNotMatch(stock.text, /বরাদ্দ|বাকি/);
     assert.deepEqual(stock.entities, [{ type: "blockquote", offset: 0, length: stock.text.length }]);
     assert.equal(stock.reply_markup.inline_keyboard[0][0].style, "success");
     assert.deepEqual(stock.reply_markup.inline_keyboard.at(-1).map(({ style }) => style), ["primary", "primary"]);
     const numbers = (reply) => reply.reply_markup.inline_keyboard
       .flat().filter((button) => button.copy_text).map((button) => button.copy_text.text);
-    assert.deepEqual(numbers(stock), ["TEST-BATCH-BD-0001", "TEST-BATCH-BD-0002", "TEST-BATCH-BD-0003"]);
+    assert.deepEqual(numbers(stock), ["DEMO-BD-0001", "DEMO-BD-0002", "DEMO-BD-0003"]);
     const change = stock.reply_markup.inline_keyboard.at(-1)[0];
     const requested = await Promise.all([press(change.callback_data, 123, "change"), press("stock:claim:demo:BD", 456)]);
     assert.equal(new Set([...numbers(stock), ...requested.flatMap(numbers)]).size, 9);
     assert.match(requested[1].text, /Demo App/);
-    assert.deepEqual(numbers(requested[1]), ["TEST-BATCH-DEMO-BD-0001", "TEST-BATCH-DEMO-BD-0002", "TEST-BATCH-DEMO-BD-0003"]);
+    assert.deepEqual(numbers(requested[1]), ["DEMO-DEMO-BD-0001", "DEMO-DEMO-BD-0002", "DEMO-DEMO-BD-0003"]);
     assert.match((await send("/service_delete demo")).text, /অ্যাডমিন/);
     assert.match((await send("/service_delete demo", true)).text, /সরানো হয়েছে/);
     assert.match((await press("stock:claim:demo:BD")).text, /পাওয়া যাচ্ছে না/);

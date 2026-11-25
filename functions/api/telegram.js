@@ -104,7 +104,7 @@ export async function onRequest({ request, env }) {
         console.error("D1 could not record /start");
         return new Response(null, { status: 503 });
       }
-      text = "👋 HELLO & WELCOME TO NUMBER BOT\n📞 Fojlay Apps Test Numbers\n⚡ Choose Get Number to browse";
+      text = "👋 HELLO & WELCOME TO NUMBER BOT\n📞 Fojlay Apps Demo Numbers\n⚡ Choose Get Number to browse";
       replyMarkup = isAdmin
         ? { ...mainMenu, keyboard: [...mainMenu.keyboard, [{ text: adminButton }]] }
         : mainMenu;
