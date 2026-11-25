@@ -1,4 +1,5 @@
 const encoder = new TextEncoder();
+const adminButton = "⚙️ Admin Panel";
 const mainMenu = {
   keyboard: [
     [{ text: "📞 Get Number" }, { text: "📊 Live Traffic" }],
@@ -40,14 +41,18 @@ export async function onRequest({ request, env }) {
   }
 
   const message = update?.message;
-  // In private chats, addressed commands cannot be intended for another bot.
   if (message?.chat?.type !== "private" ||
       !Number.isSafeInteger(message.chat.id) ||
       typeof message.text !== "string") {
     return new Response(null, { status: 204 });
   }
 
-  const command = message.text.trim().split(/\s+/, 1)[0];
+  const input = message.text.trim();
+  const command = input === adminButton ? "/admin" : input.split(/\s+/, 1)[0];
+  const senderId = message.from?.id;
+  const isAdmin = Number.isSafeInteger(senderId) &&
+    senderId === message.chat.id &&
+    String(senderId) === env.TELEGRAM_ADMIN_ID?.trim();
   let text;
   let replyMarkup;
   switch (command) {
@@ -62,7 +67,15 @@ export async function onRequest({ request, env }) {
         return new Response(null, { status: 503 });
       }
       text = "👋 HELLO & WELCOME TO NUMBER BOT\n📞 GET FREE VIRTUAL NUMBERS\n⚡ FAST & SIMPLE SMS SERVICE";
-      replyMarkup = mainMenu;
+      replyMarkup = isAdmin
+        ? { ...mainMenu, keyboard: [...mainMenu.keyboard, [{ text: adminButton }]] }
+        : mainMenu;
+      break;
+    case "/id":
+      text = `আপনার Telegram ID: ${message.chat.id}`;
+      break;
+    case "/admin":
+      text = isAdmin ? "⚙️ Admin Panel" : "এই প্যানেলটি শুধু অ্যাডমিনের জন্য।";
       break;
     case "/help":
       text = "/start — বট শুরু করুন\n/help — কমান্ড দেখুন\n/ping — বট সক্রিয় কি না দেখুন";

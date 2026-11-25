@@ -58,3 +58,17 @@ test("records /start once across Telegram retries", async () => {
     sqlite.close();
   }
 });
+
+test("shows the admin button and opens the panel only for the configured sender", async () => {
+  const env = {
+    TELEGRAM_ADMIN_ID: "123",
+    DB: { prepare: () => ({ bind: () => ({ run: async () => {} }) }) },
+  };
+  const from = (text, id) => ({ message: { ...message(text).message, from: { id } } });
+  const start = await (await webhook(from("/start", 123), { env })).json();
+  assert.deepEqual(start.reply_markup.keyboard.at(-1), [{ text: "⚙️ Admin Panel" }]);
+  assert.equal((await (await webhook(from("⚙️ Admin Panel", 123), { env })).json()).text, "⚙️ Admin Panel");
+  assert.equal((await (await webhook(from("/admin", 456), { env })).json()).text, "এই প্যানেলটি শুধু অ্যাডমিনের জন্য।");
+  const regular = await (await webhook(from("/start", 123), { env: { DB: env.DB } })).json();
+  assert.equal(regular.reply_markup.keyboard.length, 3);
+});
