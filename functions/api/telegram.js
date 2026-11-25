@@ -1,3 +1,5 @@
+import { testStock } from "../../lib/stock.js";
+
 const encoder = new TextEncoder();
 const adminButton = "⚙️ Admin Panel";
 const mainMenu = {
@@ -65,7 +67,7 @@ export async function onRequest({ request, env }) {
         console.error("D1 could not record /start");
         return new Response(null, { status: 503 });
       }
-      text = "👋 HELLO & WELCOME TO NUMBER BOT\n📞 GET FREE VIRTUAL NUMBERS\n⚡ FAST & SIMPLE SMS SERVICE";
+      text = "👋 HELLO & WELCOME TO NUMBER BOT\n📞 Fojlay Apps Test Numbers\n⚡ Choose Get Number to browse";
       replyMarkup = isAdmin
         ? { ...mainMenu, keyboard: [...mainMenu.keyboard, [{ text: adminButton }]] }
         : mainMenu;
@@ -75,6 +77,7 @@ export async function onRequest({ request, env }) {
       break;
     case "/admin":
       text = isAdmin ? "⚙️ Admin Panel" : "এই প্যানেলটি শুধু অ্যাডমিনের জন্য।";
+      if (isAdmin) replyMarkup = { keyboard: [[{ text: "/test_stock" }], [{ text: "/start" }]], resize_keyboard: true };
       break;
     case "/help":
       text = "/start — বট শুরু করুন\n/help — কমান্ড দেখুন\n/ping — বট সক্রিয় কি না দেখুন";
@@ -82,8 +85,17 @@ export async function onRequest({ request, env }) {
     case "/ping":
       text = "Pong!";
       break;
-    default:
-      return new Response(null, { status: 204 });
+    default: {
+      try {
+        const result = await testStock(input, env.DB, isAdmin);
+        if (!result) return new Response(null, { status: 204 });
+        ({ text, replyMarkup } = result);
+      } catch {
+        console.error("D1 could not load or update test stock");
+        return new Response(null, { status: 503 });
+      }
+      break;
+    }
   }
 
   // Telegram executes this Bot API method directly from the webhook response.

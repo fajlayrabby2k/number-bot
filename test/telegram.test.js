@@ -72,3 +72,35 @@ test("shows the admin button and opens the panel only for the configured sender"
   const regular = await (await webhook(from("/start", 123), { env: { DB: env.DB } })).json();
   assert.equal(regular.reply_markup.keyboard.length, 3);
 });
+
+test("Fojlay Apps lists 100 synthetic identifiers and restricts stock changes", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  try {
+    const migration = readFileSync(new URL("../migrations/0002_test_stock.sql", import.meta.url), "utf8");
+    sqlite.exec(migration);
+    sqlite.exec(migration);
+    const DB = {
+      prepare(sql) {
+        return {
+          all: async () => ({ results: sqlite.prepare(sql).all() }),
+          bind: (...args) => ({ first: async () => sqlite.prepare(sql).get(...args) }),
+        };
+      },
+    };
+    const env = { DB, TELEGRAM_ADMIN_ID: "123" };
+    const send = async (text, admin = false) => {
+      const update = message(text);
+      if (admin) update.message.from = { id: 123 };
+      return (await webhook(update, { env })).json();
+    };
+    assert.equal(sqlite.prepare("SELECT SUM(quantity) AS total FROM test_stock").get().total, 100);
+    assert.equal((await send("📞 Get Number")).reply_markup.keyboard[0][0].text, "Fojlay Apps");
+    const country = (await send("Fojlay Apps")).reply_markup.keyboard[0][0].text;
+    assert.equal((await send(country)).reply_markup.inline_keyboard[0][0].copy_text.text, "TEST-BD-0001");
+    assert.equal((await send("/test_it_10")).reply_markup.inline_keyboard.at(-1)[0].copy_text.text, "TEST-IT-0050");
+    assert.match((await send("/test_set BD 52")).text, /অ্যাডমিন/);
+    assert.match((await send("/test_set BD 52", true)).text, /52/);
+  } finally {
+    sqlite.close();
+  }
+});
