@@ -1,4 +1,4 @@
-import { claimTestStock, stockCallbackInput, testStock } from "../../lib/stock.js";
+import { claimTestStock, stockCallbackInput, testServices, testStock } from "../../lib/stock.js";
 
 const encoder = new TextEncoder();
 const adminButton = "⚙️ Admin Panel";
@@ -41,6 +41,7 @@ export async function onRequest({ request, env }) {
     return new Response(null, { status: 400 });
   }
 
+  const services = testServices(env.TEST_SERVICES);
   const callback = update?.callback_query;
   if (callback) {
     const message = callback.message;
@@ -52,14 +53,16 @@ export async function onRequest({ request, env }) {
       return new Response(null, { status: 204 });
     }
     const acknowledge = { method: "answerCallbackQuery", callback_query_id: callback.id };
-    const claim = /^stock:claim:([A-Z]{2})$/.exec(callback.data);
+    const claim = /^stock:claim:(?:([a-z][a-z0-9-]{0,23}):)?([A-Z]{2})$/.exec(callback.data);
+    const serviceId = claim?.[1] ?? "fojlay";
+    if (claim && !services.has(serviceId)) return Response.json({ ...acknowledge, text: "সার্ভিসটি পাওয়া যাচ্ছে না।" });
     if (!input && !claim) return Response.json(acknowledge);
     try {
       const result = claim
-        ? await claimTestStock(env.DB, claim[1], chatId, callback.id)
-        : await testStock(input, env.DB, false);
+        ? await claimTestStock(env.DB, claim[2], chatId, callback.id, serviceId, services.get(serviceId))
+        : await testStock(input, env.DB, false, services);
       if (!result) return Response.json(acknowledge);
-      if (!result.replyMarkup) return Response.json({ ...acknowledge, text: result.text });
+      if (!result?.replyMarkup) return Response.json({ ...acknowledge, text: result?.text });
       return Response.json({
         method: "editMessageText",
         chat_id: chatId,
@@ -89,6 +92,7 @@ export async function onRequest({ request, env }) {
     String(senderId) === env.TELEGRAM_ADMIN_ID?.trim();
   let text;
   let replyMarkup;
+  let entities;
   switch (command) {
     case "/start":
       if (!env.DB) return new Response(null, { status: 503 });
@@ -120,9 +124,9 @@ export async function onRequest({ request, env }) {
       break;
     default: {
       try {
-        const result = await testStock(input, env.DB, isAdmin);
+        const result = await testStock(input, env.DB, isAdmin, services);
         if (!result) return new Response(null, { status: 204 });
-        ({ text, replyMarkup } = result);
+        ({ text, replyMarkup, entities } = result);
       } catch {
         console.error("D1 could not load or update test stock");
         return new Response(null, { status: 503 });
@@ -132,5 +136,5 @@ export async function onRequest({ request, env }) {
   }
 
   // Telegram executes this Bot API method directly from the webhook response.
-  return Response.json({ method: "sendMessage", chat_id: message.chat.id, text, reply_markup: replyMarkup });
+  return Response.json({ method: "sendMessage", chat_id: message.chat.id, text, entities, reply_markup: replyMarkup });
 }

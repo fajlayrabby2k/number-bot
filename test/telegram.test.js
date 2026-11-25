@@ -90,7 +90,7 @@ test("Fojlay Apps allocates unique synthetic identifiers and restricts stock cha
         };
       },
     };
-    const env = { DB, TELEGRAM_ADMIN_ID: "123" };
+    const env = { DB, TELEGRAM_ADMIN_ID: "123", TEST_SERVICES: JSON.stringify({ demo: "Demo App" }) };
     const send = async (text, admin = false) => {
       const update = message(text);
       if (admin) update.message.from = { id: 123 };
@@ -105,6 +105,13 @@ test("Fojlay Apps allocates unique synthetic identifiers and restricts stock cha
     assert.equal(menu.reply_markup.keyboard, undefined);
     const service = menu.reply_markup.inline_keyboard[0][0];
     assert.equal(service.text, "Fojlay Apps");
+    assert.equal(service.style, "primary");
+    assert.equal(menu.text, "📞 Select a Service");
+    assert.equal(menu.entities[0].type, "blockquote");
+    const demo = menu.reply_markup.inline_keyboard[1][0];
+    const demoCountries = await press(demo.callback_data);
+    assert.match(demoCountries.text, /Demo App/);
+    assert.equal(demoCountries.reply_markup.inline_keyboard[0][0].callback_data, "stock:claim:demo:BD");
     const countries = await press(service.callback_data);
     assert.equal(countries.method, "editMessageText");
     const country = countries.reply_markup.inline_keyboard[0][0];
@@ -118,8 +125,9 @@ test("Fojlay Apps allocates unique synthetic identifiers and restricts stock cha
       .flat().filter((button) => button.copy_text).map((button) => button.copy_text.text);
     assert.deepEqual(numbers(stock), ["TEST-BATCH-BD-0001", "TEST-BATCH-BD-0002", "TEST-BATCH-BD-0003"]);
     const change = stock.reply_markup.inline_keyboard.at(-1)[0];
-    const requested = await Promise.all([press(change.callback_data, 123, "change"), press(change.callback_data, 456)]);
+    const requested = await Promise.all([press(change.callback_data, 123, "change"), press("stock:claim:demo:BD", 456)]);
     assert.equal(new Set([...numbers(stock), ...requested.flatMap(numbers)]).size, 9);
+    assert.match(requested[1].text, /Demo App/);
     assert.equal((await press(change.callback_data, 123, "change")).method, "answerCallbackQuery");
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS total FROM test_stock_claims").get().total, 9);
     assert.match((await send("/test_set IT 1000", true)).text, /1000/);
