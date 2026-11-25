@@ -1,4 +1,4 @@
-import { testStock } from "../../lib/stock.js";
+import { stockCallbackInput, testStock } from "../../lib/stock.js";
 
 const encoder = new TextEncoder();
 const adminButton = "⚙️ Admin Panel";
@@ -39,6 +39,34 @@ export async function onRequest({ request, env }) {
     update = await request.json();
   } catch {
     return new Response(null, { status: 400 });
+  }
+
+  const callback = update?.callback_query;
+  if (callback) {
+    const message = callback.message;
+    const chatId = message?.chat?.id;
+    const input = stockCallbackInput(callback.data);
+    if (message?.chat?.type !== "private" || !Number.isSafeInteger(chatId) ||
+        callback.from?.id !== chatId || !Number.isSafeInteger(message.message_id) ||
+        typeof callback.id !== "string") {
+      return new Response(null, { status: 204 });
+    }
+    const acknowledge = { method: "answerCallbackQuery", callback_query_id: callback.id };
+    if (!input) return Response.json(acknowledge);
+    try {
+      const result = await testStock(input, env.DB, false);
+      if (!result.replyMarkup) return Response.json({ ...acknowledge, text: result.text });
+      return Response.json({
+        method: "editMessageText",
+        chat_id: chatId,
+        message_id: message.message_id,
+        text: result.text,
+        reply_markup: result.replyMarkup,
+      });
+    } catch {
+      console.error("D1 could not load test stock");
+      return Response.json({ ...acknowledge, text: "স্টক লোড হয়নি। আবার চেষ্টা করুন।" });
+    }
   }
 
   const message = update?.message;

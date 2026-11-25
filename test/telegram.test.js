@@ -94,10 +94,22 @@ test("Fojlay Apps lists 100 synthetic identifiers and restricts stock changes", 
       return (await webhook(update, { env })).json();
     };
     assert.equal(sqlite.prepare("SELECT SUM(quantity) AS total FROM test_stock").get().total, 100);
-    assert.equal((await send("📞 Get Number")).reply_markup.keyboard[0][0].text, "Fojlay Apps");
-    const country = (await send("Fojlay Apps")).reply_markup.keyboard[0][0].text;
-    assert.equal((await send(country)).reply_markup.inline_keyboard[0][0].copy_text.text, "TEST-BD-0001");
-    assert.equal((await send("/test_it_10")).reply_markup.inline_keyboard.at(-1)[0].copy_text.text, "TEST-IT-0050");
+    const press = async (data) => (await webhook({
+      callback_query: { id: "cb", data, from: { id: 123 }, message: { ...message("").message, message_id: 1 } },
+    }, { env })).json();
+    const menu = await send("📞 Get Number");
+    assert.equal(menu.reply_markup.keyboard, undefined);
+    const service = menu.reply_markup.inline_keyboard[0][0];
+    assert.equal(service.text, "Fojlay Apps");
+    const countries = await press(service.callback_data);
+    assert.equal(countries.method, "editMessageText");
+    const country = countries.reply_markup.inline_keyboard[0][0];
+    const stock = await press(country.callback_data);
+    assert.equal(stock.reply_markup.inline_keyboard[0][0].copy_text.text, "TEST-BD-0001");
+    const change = stock.reply_markup.inline_keyboard.at(-1)[0];
+    assert.equal((await press(change.callback_data)).reply_markup.inline_keyboard[0][0].copy_text.text, "TEST-BD-0006");
+    assert.equal((await press("stock:IT:10")).reply_markup.inline_keyboard.at(-2)[0].copy_text.text, "TEST-IT-0050");
+    assert.equal((await press("/test_set BD 12")).method, "answerCallbackQuery");
     assert.match((await send("/test_set BD 52")).text, /অ্যাডমিন/);
     assert.match((await send("/test_set BD 52", true)).text, /52/);
   } finally {
