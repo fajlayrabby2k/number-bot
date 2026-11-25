@@ -50,7 +50,7 @@ test("records /start once across Telegram retries", async () => {
         ["Wallet", "Leaderboard"],
         ["Support", "Backup Bot"],
       ]);
-      assert.equal(reply.reply_markup.is_persistent, true);
+      assert.equal(reply.reply_markup.is_persistent, undefined);
     }
     assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM chats").get().count, 1);
     assert.equal((await webhook(message("/start"))).status, 503);

@@ -7,7 +7,6 @@ const mainMenu = {
     [{ text: "🙋 Support" }, { text: "🔄 Backup Bot" }],
   ],
   resize_keyboard: true,
-  is_persistent: true,
 };
 
 function secretMatches(received, expected) {
