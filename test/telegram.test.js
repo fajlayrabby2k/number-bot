@@ -105,10 +105,14 @@ test("Fojlay Apps lists 100 synthetic identifiers and restricts stock changes", 
     assert.equal(countries.method, "editMessageText");
     const country = countries.reply_markup.inline_keyboard[0][0];
     const stock = await press(country.callback_data);
-    assert.equal(stock.reply_markup.inline_keyboard[0][0].copy_text.text, "TEST-BD-0001");
+    const numbers = (reply) => reply.reply_markup.inline_keyboard
+      .flat().filter((button) => button.copy_text).map((button) => button.copy_text.text);
+    assert.deepEqual(numbers(stock), ["TEST-BD-0001", "TEST-BD-0002", "TEST-BD-0003"]);
     const change = stock.reply_markup.inline_keyboard.at(-1)[0];
-    assert.equal((await press(change.callback_data)).reply_markup.inline_keyboard[0][0].copy_text.text, "TEST-BD-0006");
-    assert.equal((await press("stock:IT:10")).reply_markup.inline_keyboard.at(-2)[0].copy_text.text, "TEST-IT-0050");
+    assert.deepEqual(numbers(await press(change.callback_data)), ["TEST-BD-0004", "TEST-BD-0005", "TEST-BD-0006"]);
+    const lastPage = await press("stock:IT:17");
+    assert.deepEqual(numbers(lastPage), ["TEST-IT-0049", "TEST-IT-0050"]);
+    assert.equal(lastPage.reply_markup.inline_keyboard.at(-1).some((button) => button.text.includes("Change")), false);
     assert.equal((await press("/test_set BD 12")).method, "answerCallbackQuery");
     assert.match((await send("/test_set BD 52")).text, /অ্যাডমিন/);
     assert.match((await send("/test_set BD 52", true)).text, /52/);
