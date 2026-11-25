@@ -1,4 +1,4 @@
-import { claimTestStock, stockCallbackInput, testServices, testStock } from "../../lib/stock.js";
+import { claimTestStock, findTestService, stockCallbackInput, testStock } from "../../lib/stock.js";
 
 const encoder = new TextEncoder();
 const adminButton = "⚙️ Admin Panel";
@@ -41,7 +41,6 @@ export async function onRequest({ request, env }) {
     return new Response(null, { status: 400 });
   }
 
-  const services = testServices(env.TEST_SERVICES);
   const callback = update?.callback_query;
   if (callback) {
     const message = callback.message;
@@ -55,12 +54,13 @@ export async function onRequest({ request, env }) {
     const acknowledge = { method: "answerCallbackQuery", callback_query_id: callback.id };
     const claim = /^stock:claim:(?:([a-z][a-z0-9-]{0,23}):)?([A-Z]{2})$/.exec(callback.data);
     const serviceId = claim?.[1] ?? "fojlay";
-    if (claim && !services.has(serviceId)) return Response.json({ ...acknowledge, text: "সার্ভিসটি পাওয়া যাচ্ছে না।" });
     if (!input && !claim) return Response.json(acknowledge);
     try {
+      const selected = claim ? await findTestService(env.DB, serviceId) : undefined;
+      if (claim && !selected) return Response.json({ ...acknowledge, text: "সার্ভিসটি পাওয়া যাচ্ছে না।" });
       const result = claim
-        ? await claimTestStock(env.DB, claim[2], chatId, callback.id, serviceId, services.get(serviceId))
-        : await testStock(input, env.DB, false, services);
+        ? await claimTestStock(env.DB, claim[2], chatId, callback.id, serviceId, selected.name)
+        : await testStock(input, env.DB, false);
       if (!result) return Response.json(acknowledge);
       if (!result?.replyMarkup) return Response.json({ ...acknowledge, text: result?.text });
       return Response.json({
@@ -114,7 +114,7 @@ export async function onRequest({ request, env }) {
       break;
     case "/admin":
       text = isAdmin ? "⚙️ Admin Panel" : "এই প্যানেলটি শুধু অ্যাডমিনের জন্য।";
-      if (isAdmin) replyMarkup = { keyboard: [[{ text: "/test_stock" }], [{ text: "/start" }]], resize_keyboard: true };
+      if (isAdmin) replyMarkup = { keyboard: [[{ text: "/services" }, { text: "/test_stock" }], [{ text: "/service_add" }, { text: "/service_delete" }], [{ text: "/start" }]], resize_keyboard: true };
       break;
     case "/help":
       text = "/start — বট শুরু করুন\n/help — কমান্ড দেখুন\n/ping — বট সক্রিয় কি না দেখুন";
@@ -124,7 +124,7 @@ export async function onRequest({ request, env }) {
       break;
     default: {
       try {
-        const result = await testStock(input, env.DB, isAdmin, services);
+        const result = await testStock(input, env.DB, isAdmin);
         if (!result) return new Response(null, { status: 204 });
         ({ text, replyMarkup, entities } = result);
       } catch {
